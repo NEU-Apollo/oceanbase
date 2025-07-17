@@ -10,6 +10,7 @@ CMAKE_COMMAND="${TOOLS_DIR}/bin/cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1"
 CPU_CORES=`grep -c ^processor /proc/cpuinfo`
 KERNEL_RELEASE=`grep -Po 'release [0-9]{1}' /etc/issue 2>/dev/null`
 
+
 ALL_ARGS=("$@")
 BUILD_ARGS=()
 MAKE_ARGS=(-j $CPU_CORES)
