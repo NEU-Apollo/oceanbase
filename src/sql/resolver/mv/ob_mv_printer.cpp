@@ -13,6 +13,7 @@
 #define USING_LOG_PREFIX SQL_RESV
 #include "sql/resolver/mv/ob_mv_printer.h"
 #include "sql/optimizer/ob_optimizer_util.h"
+#include "sql/resolver/dml/ob_hint.h"
 
 namespace oceanbase
 {
@@ -56,6 +57,26 @@ int ObMVPrinter::print_mv_operators(ObIAllocator &str_alloc,
   } else if (OB_FAIL(operators.prepare_allocate(dml_stmts.count()))) {
     LOG_WARN("failed to prepare allocate ObSqlString arrays", K(ret), K(dml_stmts.count()));
   } else {
+    // === 新增：获取 global_hint 并设置 hint ===
+    ObGlobalHint &global_hint = mv_def_stmt_.get_query_ctx()->get_query_hint_for_update().get_global_hint();
+
+    // 开启 PDML
+    global_hint.merge_parallel_dml_hint(ObPDMLOption::ENABLE);
+
+    // 设置并行度
+    int64_t parallel = 4;
+    global_hint.merge_parallel_hint(parallel);
+    global_hint.merge_dml_parallel_hint(parallel);
+
+    // 设置 Direct Load Hint
+    ObDirectLoadHint direct_load_hint;
+    direct_load_hint.has_direct_ = 1;
+    direct_load_hint.has_no_direct_ = 0;
+    direct_load_hint.load_method_ = ObDirectLoadHint::INC;
+    direct_load_hint.max_error_row_count_ = 0;
+
+    global_hint.merge_direct_load_hint(direct_load_hint);
+
     ObObjPrintParams obj_print_params(mv_def_stmt_.get_query_ctx()->get_timezone_info());
     obj_print_params.print_origin_stmt_ = true;
     obj_print_params.not_print_internal_catalog_ = true;
