@@ -696,6 +696,22 @@ int ObCOSSTableV2::scan(
     }
   } else {
     // TODO: check whether use row_store/rowkey sstable when primary keys accessed only
+    bool use_rowkey_cg_for_count_star = false;
+    if (!param.vectorized_enabled_ &&
+        param.enable_pd_aggregate() &&
+        param.agg_cols_project_->count() == 1 &&
+        param.agg_cols_project_->at(0) == OB_COUNT_AGG_PD_COLUMN_ID &&
+        context.block_row_store_ != nullptr &&
+        context.block_row_store_->filter_is_null()) {
+      use_rowkey_cg_for_count_star = true;
+    }
+
+    if (use_rowkey_cg_for_count_star && is_rowkey_cg_base()) {
+      // 利用 rowkey CG 构造行存模式迭代器
+      if (OB_FAIL(ObSSTable::scan(param, context, key_range, row_iter))) {
+        LOG_WARN("Fail to scan in rowkey CG sstable for count(*)", K(ret));
+      }
+    } else {
     ObStoreRowIterator *row_scanner = nullptr;
     ALLOCATE_TABLE_STORE_ROW_IETRATOR(context, ObCOSSTableRowScanner, row_scanner);
     if (OB_SUCC(ret) && OB_NOT_NULL(row_scanner) && OB_FAIL(row_scanner->init(param, context, this, &key_range))) {
@@ -710,6 +726,7 @@ int ObCOSSTableV2::scan(
       }
     } else {
       row_iter = row_scanner;
+    }
     }
   }
   return ret;
